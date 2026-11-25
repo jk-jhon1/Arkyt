@@ -19,6 +19,8 @@ export function log(msg){
 }
 export function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'),3500); }
 export function closeAll(){ for(const id of OVERLAYS) $(id).classList.add('hidden'); }
+export function anyOpen(){ return OVERLAYS.some(id=>!$(id).classList.contains('hidden')); }
+export function isOpen(id){ return !$(id).classList.contains('hidden'); }
 export function toggle(id){ const el=$(id); const was=el.classList.contains('hidden'); closeAll(); if(was) el.classList.remove('hidden'); }
 
 export function updateHUD(g){
@@ -56,9 +58,13 @@ export function updateHUD(g){
   renderHotbar(g);
 }
 
+let _hbSig = '';
 export function renderHotbar(g){
   const hb=$('hotbar'); if(!hb||!g.player) return;
   hb.classList.remove('hidden');
+  const sig = g.selectedSlot+'|'+g.inventory.map(s=>s.item+s.qtd).join(',');
+  if(sig===_hbSig) return; // só reconstrói quando muda (evita travar cliques)
+  _hbSig = sig;
   hb.innerHTML='';
   for(let i=0;i<6;i++){
     const s=g.inventory[i];

@@ -67,7 +67,7 @@ export class World {
       this.caves.push({x:cx, y:cy, w:cw, h:ch});
       // entrada natural: abre a superfície acima da caverna
       const ei = this.col(cx);
-      for(let j=Math.max(0,ei-3); j<Math.min(this.cols,ei+4); j++) this.surface[j] = Math.max(this.surface[j], cy+ch+10);
+      for(let j=Math.max(0,ei-3); j<Math.min(this.cols,ei+4); j++) this.surface[j] = Math.max(this.surface[j], cy+ch/2);
       this.pois.push({x:cx, y:this.groundY(cx)-10, tipo:'entradas de cavernas', nome:'Entrada de caverna natural'});
     }
     // --- rochas com minérios REAIS (superfície + cavernas) ---
@@ -113,13 +113,15 @@ export class World {
     return true;
   }
   waterAt(x,y){ for(const w of this.water){ if(x>=w.x0 && x<=w.x1 && y>=w.level && y<w.level+400) return w; } return null; }
+  waterLevelAt(x){ for(const w of this.water){ if(x>=w.x0 && x<=w.x1) return w.level; } return null; }
+  waterLevelAt(x){ for(const w of this.water){ if(x>=w.x0 && x<=w.x1) return w.level; } return null; }
   lavaAt(x,y){ for(const l of this.lava){ if(x>=l.x0 && x<=l.x1 && y>=l.level && y<l.level+60) return l; } return null; }
   tempAt(x, hour, weather){
     const b = this.biome(x);
     const dayCurve = Math.sin((hour-6)/12*Math.PI); // pico ao meio-dia
     let t = b.temp + dayCurve*6;
     if(weather==='chuva') t-=4; if(weather==='tempestade') t-=6; if(weather==='neblina') t-=2;
-    if(this.lavaAt(x, 9999)) t+=15;
+    for(const l of this.lava) if(x>=l.x0 && x<=l.x1) t+=15;
     return Math.round(t);
   }
 }

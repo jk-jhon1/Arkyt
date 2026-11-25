@@ -6,7 +6,7 @@
 // ============================================================
 import { World, Weather, mulberry32, hashSeed } from './world.js';
 import { AudioSys } from './audio.js';
-import { drawPlayer, drawCreature, drawTree, drawRock, drawPlant, drawBuilding, drawPOI, px } from './sprites.js';
+import { drawPlayer, drawCreature, drawTree, drawRock, drawPlant, drawBuilding, drawPOI, drawCloud, cube, px } from './sprites.js';
 import * as D from './data.js';
 import * as UI from './ui.js';
 
@@ -63,15 +63,16 @@ export class Game {
   spawnInitial(){
     for(let i=0;i<26;i++) this.spawnCreatureNear(this.world.spawn.x + (this.rng()-0.5)*3000);
   }
-  save(){
+  save(silent){
     if(!this.player) return;
     const data = {
       seed: this.world.seedStr, char: this.char, player: {...this.player, body:this.player.body},
       inventory: this.inventory, buildings: this.buildings, entities: this.entities.map(e=>({...e})),
       gameHour:this.gameHour, day:this.day, stats:this.stats, discovered:[...this.discovered],
+      weather: this.weather.tipo,
       rocks: this.world.rocks, trees: this.world.trees, plants: this.world.plants,
     };
-    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); UI.log('💾 Jogo salvo.'); this.audio.sfx('salvar'); }catch(e){ UI.log('⚠️ Falha ao salvar.'); }
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); if(!silent){ UI.log('💾 Jogo salvo.'); this.audio.sfx('salvar'); } }catch(e){ if(!silent) UI.log('⚠️ Falha ao salvar.'); }
   }
   load(){
     try{
@@ -138,7 +139,9 @@ export class Game {
       this.keys[k] = true;
       if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
       if(!this.running || this.dead) return;
-      if(k==='i') UI.toggle('inv-overlay');
+      const anyOpen = UI.anyOpen();
+      if(k==='i'){ UI.toggle('inv-overlay'); if(UI.isOpen('inv-overlay')) UI.renderInventory(this); return; }
+      if(anyOpen && !['escape','r','b','m','t','c','h'].includes(k)) return; // painéis abertos: ignora ações do jogo
       else if(k==='r') UI.openCraft(this);
       else if(k==='b') UI.openBuild(this);
       else if(k==='m') UI.openMap(this);
@@ -241,7 +244,7 @@ export class Game {
         p.y = ground; p.vy=0; p.onGround=true; p.fallStartY=p.y;
       } else { if(p.onGround){ p.fallStartY=p.y; } p.onGround=false; }
       // barco: flutuar
-      if(p.onBoat){ const w=this.world.waterAt(p.x,9999); if(w){ p.y=w.level; p.onGround=true; } }
+      if(p.onBoat){ const wl=this.world.waterLevelAt(p.x); if(wl!==null){ p.y=wl; p.onGround=true; } }
     }
     // ferramenta equipada = primeiro item ferramenta da hotbar selecionada
     p.tool = this.hotbarTool();
@@ -289,8 +292,8 @@ export class Game {
     const nearTame = this.entities.some(e=>!e.tamed && Math.abs(e.x-p.x)<120);
     this.audio.update(dt, danger?'combate':(nearTame?'domesticao':'exploracao'));
     if(Math.random()<dt*0.15) this.audio.ambiente(biome.id, this.weather.tipo);
-    // autosave
-    if(this.elapsed%30 < dt) this.save();
+    // autosave silencioso
+    if(this.elapsed%30 < dt) this.save(true);
     // modo construção: fantasma segue o jogador
     if(this.buildMode) this.buildX = p.x + p.dir*60;
   }
@@ -385,7 +388,7 @@ export class Game {
     if(this.entities.length<30 && Math.random()<dt*0.5) this.spawnCreatureNear(p.x+(this.rng()-0.5)*1600);
     this.entities = this.entities.filter(e=>{
       const dist = Math.abs(e.x-p.x);
-      if(dist>2600) return false; // streaming por regiões
+      if(dist>2600 && !e.tamed) return false; // streaming por regiões (domados nunca somem)
       e.timer -= dt; e.walkPhase += dt*6;
       const speed = e.vel * (e.filhote?0.5:1);
       const ground = e.aquatico ? D.SEA_Y+40 : this.world.groundY(e.x);
@@ -412,6 +415,7 @@ export class Game {
       else if(e.estado==='dormir'){ /* parado */ }
       if(e.voador) e.y = ground - 60 + Math.sin(this.time*2+e.id)*10;
       else if(e.aquatico) e.y = D.SEA_Y+30+Math.sin(this.time*1.5+e.id)*8;
+      else if(e.caverna){ const c=this.world.caves.find(c=>e.x>c.x-c.w/2&&e.x<c.x+c.w/2); e.y = c ? c.y+c.h/2 : ground; }
       else e.y = ground;
       // grupo caça em bando
       if(e.grupo && e.estado==='caçar'){ for(const o of this.entities) if(o!==e&&o.nome===e.nome&&Math.abs(o.x-e.x)<200) o.x += (e.x-o.x)*dt*0.5; }
@@ -689,53 +693,60 @@ export class Game {
     const sky = ctx.createLinearGradient(0,0,0,cv.height);
     sky.addColorStop(0, biome.ceu[0]); sky.addColorStop(1, biome.ceu[1]);
     ctx.fillStyle = sky; ctx.fillRect(0,0,cv.width,cv.height);
-    // sol/lua
+    // sol/lua quadrado voxel (como nas pranchas)
     const sunX = cv.width*(this.gameHour/24), sunY = cv.height*0.18;
     ctx.fillStyle = dayF>0.2 ? '#f8e88a' : '#d8dce8';
-    ctx.beginPath(); ctx.arc(sunX, sunY, 26, 0, 7); ctx.fill();
-    // parallax: colinas distantes
+    ctx.fillRect(sunX-22, sunY-22, 44, 44); ctx.fillRect(sunX-14, sunY-30, 28, 8); ctx.fillRect(sunX-14, sunY+22, 28, 8);
+    // nuvens em cubos (parallax)
+    for(let i=0;i<7;i++){ const cxp=((i*340 - camX*0.25)%(cv.width+300))-150; drawCloud(ctx, cxp, 40+(i%3)*36, 90+(i%3)*30); }
+    // parallax: colinas distantes em blocos
     ctx.fillStyle = 'rgba(60,90,70,0.35)';
     for(let i=0;i<8;i++){ const hx=((i*420 - camX*0.3)%(cv.width+400))-200; ctx.fillRect(hx, cv.height*0.45, 300, cv.height*0.3); }
     ctx.save();
     ctx.scale(z,z); ctx.translate(-camX,-camY);
     const x0 = camX-50, x1 = camX + cv.width/z + 50;
-    // terreno
+    // terreno em blocos voxel: topo (grama/areia/neve) + terra/pedra salpicada
     const step = this.world.step;
     for(let cx=Math.floor(x0/step); cx<Math.ceil(x1/step); cx++){
       if(cx<0||cx>=this.world.cols) continue;
       const wx = cx*step, gy = this.world.groundY(wx);
       const b = this.world.biome(wx);
-      let top = b.id==='praia'||b.id==='costa'||b.id==='ilhas' ? '#e8d89a' : (b.id==='gelada'?'#eef6fc':(b.id==='deserto'?'#e0b85a':(b.id==='vulcao'?'#4a3a3a':(b.id==='montanha'||b.id==='rochosas'?'#8a8a92':'#4a9a3a'))));
-      px(ctx,wx,gy,step,10,top);
-      px(ctx,wx,gy+10,step,22,'#6a4a2e');
-      px(ctx,wx,gy+32,step,400,'#5a5a62');
-      px(ctx,wx,gy+32,step,4,'#4a4a52');
+      const top = (b.id==='praia'||b.id==='costa'||b.id==='ilhas') ? '#e8d89a' : (b.id==='gelada'?'#eef6fc':(b.id==='deserto'?'#e0b85a':(b.id==='vulcao'?'#5a4a4a':(b.id==='montanha'||b.id==='rochosas'?'#9aa2ac':'#4ab84a'))));
+      const sub = (b.id==='praia'||b.id==='costa'||b.id==='ilhas'||b.id==='deserto') ? '#c8a86a' : (b.id==='gelada'?'#b8d4e8':'#8a5a2e');
+      cube(ctx,wx,gy,step,16,top,cx);
+      cube(ctx,wx,gy+16,step,16,sub,cx+1);
+      cube(ctx,wx,gy+32,step,16,'#8a929c',cx+2);
+      px(ctx,wx,gy+48,step,600,'#6a727c'); px(ctx,wx,gy+48,step,5,'#5a626c');
     }
     // cavernas (escuras, naturais)
     for(const c of this.world.caves){
       if(c.x+c.w/2<x0||c.x-c.w/2>x1) continue;
       px(ctx,c.x-c.w/2,c.y-c.h/2,c.w,c.h,'#14141c');
       px(ctx,c.x-c.w/2,c.y-c.h/2,c.w,4,'#2a2a32');
+      for(let sx2=c.x-c.w/2+20; sx2<c.x+c.w/2-20; sx2+=70){ px(ctx,sx2,c.y-c.h/2,8,14,'#3a3a44'); px(ctx,sx2+2,c.y-c.h/2+14,4,8,'#3a3a44'); } // estalactites
       // minérios brilhando na caverna
       for(const r of this.world.rocks) if(r.caverna && Math.abs(r.x-c.x)<c.w/2) px(ctx,r.x-3,r.y-3,6,6, D.ORE_COR[r.ore]||'#fff');
     }
     // água (mar/rios/lagos) + lava
     for(const w of this.world.water){
       if(w.x1<x0||w.x0>x1) continue;
-      const gy = this.world.groundY(Math.max(w.x0,x0));
-      if(gy>w.level) { ctx.fillStyle='rgba(60,140,220,0.75)'; ctx.fillRect(Math.max(w.x0,x0), w.level, Math.min(w.x1,x1)-Math.max(w.x0,x0), gy-w.level+200); }
+      for(let wx=Math.max(w.x0,x0); wx<Math.min(w.x1,x1); wx+=16){
+        const gy = this.world.groundY(wx);
+        if(gy>w.level){ ctx.fillStyle='rgba(50,140,230,0.8)'; ctx.fillRect(wx, w.level, 16, gy-w.level+200);
+          ctx.fillStyle='rgba(180,230,250,0.7)'; ctx.fillRect(wx+((wx/16)%3)*4, w.level, 6, 3); }
+      }
     }
     for(const l of this.world.lava){ if(l.x1<x0||l.x0>x1) continue; px(ctx,l.x0,l.level,l.x1-l.x0,40,'#e87a2e'); px(ctx,l.x0,l.level,l.x1-l.x0,8,'#f2c14e'); }
     // POIs
-    for(const poi of this.world.pois) if(poi.x>x0&&poi.x<x1) drawPOI(ctx,poi,camX,camY);
-    // árvores, rochas, plantas
-    for(const t of this.world.trees) if(t.x>x0&&t.x<x1) drawTree(ctx,t,camX,camY);
-    for(const r of this.world.rocks) if(r.x>x0&&r.x<x1){ r.cor=D.ORE_COR[r.ore]; drawRock(ctx,r,camX,camY); }
-    for(const pl of this.world.plants) if(pl.x>x0&&pl.x<x1) drawPlant(ctx,pl,camX,camY,this.time);
-    // construções
-    for(const b of this.buildings) if(b.x>x0&&b.x<x1) drawBuilding(ctx,b,camX,camY,this.time);
+    // POIs / árvores / rochas / plantas / construções: coordenadas de mundo
+    // (a câmera já foi aplicada via translate — NÃO subtrair camX/camY de novo)
+    for(const poi of this.world.pois) if(poi.x>x0&&poi.x<x1) drawPOI(ctx,poi);
+    for(const t of this.world.trees) if(t.x>x0&&t.x<x1) drawTree(ctx,t);
+    for(const r of this.world.rocks) if(r.x>x0&&r.x<x1){ r.cor=D.ORE_COR[r.ore]; drawRock(ctx,r); }
+    for(const pl of this.world.plants) if(pl.x>x0&&pl.x<x1) drawPlant(ctx,pl,this.time);
+    for(const b of this.buildings) if(b.x>x0&&b.x<x1) drawBuilding(ctx,b,this.time);
     // fantasma de construção
-    if(this.buildMode){ ctx.globalAlpha=0.6; drawBuilding(ctx,{nome:this.buildMode,x:this.buildX,y:this.world.groundY(this.buildX)},camX,camY,this.time); ctx.globalAlpha=1; }
+    if(this.buildMode){ ctx.globalAlpha=0.6; drawBuilding(ctx,{nome:this.buildMode,x:this.buildX,y:this.world.groundY(this.buildX)},this.time); ctx.globalAlpha=1; }
     // entidades
     for(const e of this.entities) if(e.x>x0&&e.x<x1) drawCreature(ctx,e);
     // jogador (ou montaria)
