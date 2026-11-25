@@ -37,7 +37,7 @@ export class Game {
     this.rng = mulberry32(hashSeed(seedStr+'-jogo'));
     this.char = char;
     this.player = {
-      x: this.world.spawn.x, y: this.world.spawn.y, vx:0, vy:0, dir:1,
+      x: this.world.spawn.x, y: this.world.spawn.y, vx:0, vy:0, dir:1, z:0, // z = profundidade 2.5D (-1 fundo .. +1 frente)
       onGround:false, swimming:false, climbing:false, riding:null, sleeping:false,
       pose:'parado', walkPhase:0, fallStartY:0, tool:null,
       hunger:100, thirst:100, sleep:100, temp:36.5, pain:0, consciousness:100, breathing:100,
@@ -233,6 +233,13 @@ export class Game {
       // escalar: cipós (árvores) e escadas
       p.climbing = this.nearClimbable() && (this.keys['w']||this.keys['s']);
       if(p.climbing){ p.vy = 0; p.y += ((this.keys['s']?1:-1)*100)*dt; p.pose='escalar'; }
+      // 2.5D: W/S entra/sai da tela (profundidade), A/D anda para os lados
+      if(!p.swimming && !p.climbing){
+        let zmove = 0;
+        if(this.keys['w']||this.keys['arrowup']) zmove -= 1;
+        if(this.keys['s']||this.keys['arrowdown']) zmove += 1;
+        if(zmove!==0){ p.z = Math.max(-1, Math.min(1, p.z + zmove*dt*1.4)); p.pose='andar'; p.walkPhase += dt*9; }
+      }
       // física
       p.x += p.vx*dt;
       p.x = Math.max(20, Math.min(D.WORLD_W-20, p.x));
@@ -377,7 +384,7 @@ export class Game {
       vel:sp.vel, dano:sp.dano, fav:sp.fav, cor:sp.cor, biomas:sp.biomas,
       aquatico:!!sp.aquatico, voador:!!sp.voador, veneno:!!sp.veneno, grupo:!!sp.grupo,
       montaria:!!sp.montaria, dificuldade:sp.dificuldade||0.5,
-      x, y, vx:0, vy:0, dir:this.rng()<0.5?-1:1, walkPhase:this.rng()*6,
+      x, y, vx:0, vy:0, dir:this.rng()<0.5?-1:1, walkPhase:this.rng()*6, z:(this.rng()*2-1),
       estado:'vagar', timer:this.rng()*4, tamed:false, bond:0, comando:'seguir',
       sela:false, arreio:false, equip:false, carry:200, filhote:false, alvo:null, body, caverna:inCave,
     });
@@ -411,7 +418,7 @@ export class Game {
         e.dir = e.x<p.x?-1:1;
         if(e.estado==='fugir') e.x += e.dir*speed*1.2*dt;
         else { e.x += e.dir*speed*dt; if(dist<50 && Math.random()<dt*1.2) this.creatureHitPlayer(e); }
-      } else if(e.estado==='vagar'){ e.x += e.dir*speed*0.4*dt; }
+      } else if(e.estado==='vagar'){ e.x += e.dir*speed*0.4*dt; e.z = Math.max(-1, Math.min(1, e.z + (this.rng()-0.5)*dt*0.4)); }
       else if(e.estado==='dormir'){ /* parado */ }
       if(e.voador) e.y = ground - 60 + Math.sin(this.time*2+e.id)*10;
       else if(e.aquatico) e.y = D.SEA_Y+30+Math.sin(this.time*1.5+e.id)*8;
@@ -450,9 +457,10 @@ export class Game {
       if(threat){ e.x += (threat.x-e.x)*dt*speed*0.02; if(Math.abs(threat.x-e.x)<50){ threat.hp-=e.dano*dt*2; } return 'atacar'; }
     }
     if(e.comando==='carregar'){ e.x += (p.x-e.x)*dt*0.2; return 'vagar'; }
-    // seguir
+    // seguir (incluindo profundidade 2.5D)
     const d = p.x-e.x;
     if(Math.abs(d)>80) e.x += Math.sign(d)*speed*0.8*dt;
+    e.z += ((p.z||0)-e.z)*dt*1.5;
     return 'vagar';
   }
   creatureHitPlayer(e){
@@ -701,9 +709,10 @@ export class Game {
     for(let i=0;i<7;i++){ const cxp=((i*340 - camX*0.15)%(cv.width+300))-150; drawCloud(ctx, cxp, 40+(i%3)*36, 90+(i%3)*30); }
     // 2.5D: 3 camadas de parallax (montanhas distantes, colinas, árvores próximas)
     const layers = [
-      { f:0.2, cor:'rgba(120,140,170,0.45)', h:0.42, w:420 },
-      { f:0.4, cor:'rgba(70,110,90,0.55)', h:0.5, w:320 },
-      { f:0.65, cor:'rgba(45,90,60,0.7)', h:0.58, w:220 },
+      { f:0.12, cor:'rgba(150,170,200,0.4)', h:0.36, w:520 },
+      { f:0.28, cor:'rgba(110,140,175,0.5)', h:0.44, w:420 },
+      { f:0.5, cor:'rgba(70,115,90,0.6)', h:0.52, w:320 },
+      { f:0.78, cor:'rgba(45,95,60,0.75)', h:0.6, w:220 },
     ];
     for(const L of layers){
       ctx.fillStyle = L.cor;
@@ -754,14 +763,22 @@ export class Game {
     for(const b of this.buildings) if(b.x>x0&&b.x<x1) drawBuilding(ctx,b,this.time);
     // fantasma de construção
     if(this.buildMode){ ctx.globalAlpha=0.6; drawBuilding(ctx,{nome:this.buildMode,x:this.buildX,y:this.world.groundY(this.buildX)},this.time); ctx.globalAlpha=1; }
-    // 2.5D: sombras projetadas no chão
-    for(const e of this.entities) if(e.x>x0&&e.x<x1) drawShadow(ctx,e.x,e.y,18);
-    drawShadow(ctx,p.x,p.y,16);
-    // 2.5D: ordem de pintura por profundidade (mais alto = mais atrás)
-    const drawables = this.entities.filter(e=>e.x>x0&&e.x<x1).map(e=>({y:e.y, fn:()=>drawCreature(ctx,e)}));
-    drawables.push({y:p.y, fn:()=>{
+    // 2.5D: profundidade z -> deslocamento vertical + escala (fundo menor, frente maior)
+    const ZY = 38, ZS = 0.22;
+    const sy = (o)=> (o.y||0) + (o.z||0)*ZY;
+    const sc = (o)=> 1 + (o.z||0)*ZS;
+    for(const e of this.entities) if(e.x>x0&&e.x<x1) drawShadow(ctx,e.x,sy(e),18*sc(e));
+    drawShadow(ctx,p.x,sy(p),16*sc(p));
+    // ordem de pintura por profundidade (fundo primeiro)
+    const drawables = this.entities.filter(e=>e.x>x0&&e.x<x1).map(e=>({y:sy(e), fn:()=>{
+      ctx.save(); ctx.translate(e.x,sy(e)); ctx.scale(sc(e),sc(e)); ctx.translate(-e.x,-e.y);
+      drawCreature(ctx,e); ctx.restore();
+    }}));
+    drawables.push({y:sy(p), fn:()=>{
+      ctx.save(); ctx.translate(p.x,sy(p)); ctx.scale(sc(p),sc(p)); ctx.translate(-p.x,-p.y);
       if(p.riding) drawCreature(ctx,p.riding);
       drawPlayer(ctx,{x:p.x,y:p.y,dir:p.dir,pose:p.pose,walkPhase:p.walkPhase,skin:this.char.skin,hair:this.char.hair,hairStyle:this.char.hairStyle,beard:this.char.beard,shirt:this.char.shirt,pants:'#4a3a2e',tool:p.tool,riding:!!p.riding,sleeping:p.sleeping,swim:p.swimming,climb:p.climbing});
+      ctx.restore();
     }});
     drawables.sort((a,b)=>a.y-b.y);
     for(const d of drawables) d.fn();

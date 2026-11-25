@@ -1,6 +1,6 @@
 # Sobrevivência Primitiva — Mundo Vivo (2.5D Voxel)
 
-Jogo de sobrevivência **2.5D em pixel art voxelizada**, desenvolvido em **JavaScript** (Canvas 2D), com sprites redesenhados a partir das pranchas de modelo e renderização 2.5D (cubos com topo/lateral 3D, parallax em 3 camadas, sombras projetadas, névoa de profundidade e primeiro plano) (personagem de camisa vermelha xadrez e calça azul com mochila; cavalo marrom de patas brancas; capivara; lobo cinza; urso; crocodilo; tubarão; golfinho; elefante; rinoceronte; triceratops laranja; dinossauros de pescoço longo; blocos de minério salpicados; fornalha, baú e cama vermelha; terreno em blocos; sol e nuvens em cubos),
+Jogo de sobrevivência **2.5D em pixel art voxelizada**, desenvolvido em **JavaScript** (Canvas 2D), com sprites redesenhados a partir das pranchas de modelo e renderização 2.5D de verdade (movimento em profundidade com W/S, escala por profundidade, cubos com topo/lateral 3D pronunciados, parallax em 4 camadas, sombras projetadas, névoa de profundidade e primeiro plano) (personagem de camisa vermelha xadrez e calça azul com mochila; cavalo marrom de patas brancas; capivara; lobo cinza; urso; crocodilo; tubarão; golfinho; elefante; rinoceronte; triceratops laranja; dinossauros de pescoço longo; blocos de minério salpicados; fornalha, baú e cama vermelha; terreno em blocos; sol e nuvens em cubos),
 seguindo o documento de visão *“Sobrevivência Primitiva — Mundo Vivo”* **à risca e sem
 remover nenhum elemento**. A única adaptação é a dimensão: o prompt original pedia 3D
 voxelizado; aqui tudo foi convertido para **2D pixel art** (formas cúbicas 2D, cores
@@ -19,7 +19,7 @@ Ou qualquer servidor estático. Sem dependências externas — tudo é procedura
 
 | Ação | Tecla |
 |---|---|
-| Mover | `A`/`D` ou `←`/`→` (controle: analógico) |
+| Mover (2.5D) | `A`/`D` lados · `W`/`S` profundidade (controle: analógico) |
 | Pular | `Espaço` |
 | Correr | segurar `Shift` |
 | Nadar / escalar | `W`/`S` na água ou em árvores/escadas |

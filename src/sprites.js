@@ -13,7 +13,7 @@ function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=
 // cubo voxel 2.5D: face frontal + topo em paralelogramo + lateral direita
 // (efeito 3D como nas pranchas), com salpicos de textura.
 export function cube(ctx,x,y,w,h,base,seed=0){
-  const dep = Math.min(7, Math.max(2, h*0.28)); // profundidade do cubo
+  const dep = Math.min(13, Math.max(3, h*0.45)); // profundidade do cubo 2.5D
   const top = shade(base,42), side = shade(base,-46);
   // face lateral direita (paralelogramo)
   ctx.fillStyle = side;
