@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sobrevivência Primitiva — Mundo Vivo (2D Pixel Art)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b0e14;overflow:hidden;font-family:"Courier New",monospace;color:#e8e4d8}
+  #game{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;background:#87b7d9}
+  .pixel-panel{background:rgba(16,20,28,.92);border:3px solid #5a4632;box-shadow:0 0 0 3px #1a1208,inset 0 0 0 2px #2c2417;padding:10px}
+  .hidden{display:none!important}
+  button{font-family:inherit;background:#3d5a2e;color:#f2ecd9;border:2px solid #1c2a12;padding:6px 10px;cursor:pointer;font-size:13px}
+  button:hover{background:#4d7038}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.warn{background:#7a3b2e;border-color:#3a1a12}
+  button.blue{background:#2e4a5a;border-color:#12242e}
+  h2{font-size:15px;color:#ffd97a;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+  h3{font-size:13px;color:#a8d8ff;margin:8px 0 4px}
+  .small{font-size:11px;opacity:.85}
+  /* HUD */
+  #hud{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none;z-index:5}
+  #hud-left,#hud-right{pointer-events:auto}
+  #compass{height:22px;overflow:hidden;position:relative;background:rgba(10,12,18,.7);border:2px solid #5a4632;width:280px;margin:0 auto}
+  #compass-strip{position:absolute;top:0;white-space:nowrap;font-size:12px;line-height:22px;color:#ffd97a}
+  #biome-label{text-align:center;font-size:12px;color:#cfe8ff;text-shadow:1px 1px 0 #000;margin-top:2px}
+  #bars{width:230px}
+  .bar{height:14px;background:#1a1a1a;border:2px solid #000;margin:3px 0;position:relative}
+  .bar>i{display:block;height:100%}
+  .bar>span{position:absolute;left:4px;top:0;font-size:10px;line-height:12px;color:#fff;text-shadow:1px 1px 0 #000}
+  #hp-fill{background:linear-gradient(90deg,#b03030,#e05a4e)}
+  #hunger-fill{background:linear-gradient(90deg,#c98a2e,#f2c14e)}
+  #thirst-fill{background:linear-gradient(90deg,#2e6fc9,#5ab0f2)}
+  #sleep-fill{background:linear-gradient(90deg,#5a4a9e,#9e8af2)}
+  #temp-fill{background:linear-gradient(90deg,#3a9ec9,#f2a03a)}
+  #weight-fill{background:linear-gradient(90deg,#6a7a5a,#a8b88a)}
+  #clock{font-size:13px;color:#ffe9a8;text-shadow:1px 1px 0 #000}
+  #cam-label{font-size:11px;color:#a8d8ff}
+  #status-icons{font-size:12px;line-height:1.5;text-shadow:1px 1px 0 #000}
+  #hotbar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:5}
+  .slot{width:44px;height:44px;background:rgba(16,20,28,.85);border:2px solid #5a4632;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;position:relative;cursor:pointer}
+  .slot.sel{border-color:#ffd97a;box-shadow:0 0 8px #ffd97a}
+  .slot .n{position:absolute;top:1px;left:3px;font-size:9px;color:#aaa}
+  .slot .q{position:absolute;bottom:1px;right:3px;font-size:10px;color:#fff;text-shadow:1px 1px 0 #000}
+  .slot .nm{font-size:8px;color:#cfe8ff;text-align:center;line-height:1}
+  #msg-log{position:absolute;bottom:64px;left:8px;width:340px;max-height:150px;overflow:hidden;z-index:5;font-size:12px;text-shadow:1px 1px 0 #000;pointer-events:none}
+  #msg-log div{margin:2px 0;background:rgba(0,0,0,.45);padding:2px 6px;border-left:3px solid #ffd97a}
+  #interact-tip{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:rgba(16,20,28,.9);border:2px solid #ffd97a;padding:6px 12px;font-size:13px;z-index:5}
+  /* Painéis */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,8,12,.72);z-index:20}
+  .panel{width:min(760px,94vw);max-height:88vh;overflow:auto}
+  #inv-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+  #inv-grid .slot{width:auto;height:52px}
+  .recipe{display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #444;padding:5px 2px;font-size:12px}
+  .recipe .cost{color:#a8d8ff;font-size:11px}
+  .tabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+  .tabs button.sel{background:#8a6a2e}
+  #body-diagram{display:flex;gap:12px}
+  #body-list{font-size:12px;line-height:1.7}
+  #map-canvas{width:100%;height:340px;background:#0e1622;border:2px solid #5a4632;image-rendering:pixelated}
+  /* Título / criação de personagem */
+  #title-screen .panel{width:min(620px,94vw);text-align:center}
+  #title-screen h1{font-size:26px;color:#ffd97a;text-shadow:3px 3px 0 #5a2e12;letter-spacing:2px;margin-bottom:4px}
+  #title-screen .sub{color:#a8d8ff;margin-bottom:14px;font-size:13px}
+  .opt-row{display:flex;justify-content:space-between;align-items:center;margin:6px 0;font-size:13px}
+  .opt-row .opts{display:flex;gap:4px}
+  .opt-row button.sel{background:#8a6a2e}
+  #char-preview{width:96px;height:128px;background:#2a3a4a;border:2px solid #5a4632;image-rendering:pixelated;margin:8px auto}
+  #help-list{font-size:12px;line-height:1.8;text-align:left}
+  #help-list b{color:#ffd97a}
+  .kbd{background:#222;border:1px solid #666;padding:0 5px;border-radius:3px;color:#fff}
+  #death-screen h1{color:#e05a4e;font-size:30px;text-shadow:3px 3px 0 #300}
+  #toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:rgba(16,20,28,.95);border:2px solid #ffd97a;padding:8px 16px;z-index:30;font-size:14px}
+  @media (max-width:700px){#bars{width:170px}#compass{width:180px}#msg-log{width:240px}#inv-grid{grid-template-columns:repeat(5,1fr)}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="hud-left">
+    <div id="bars" class="pixel-panel">
+      <div class="bar"><i id="hp-fill" style="width:100%"></i><span>❤ VIDA <b id="hp-txt"></b></span></div>
+      <div class="bar"><i id="hunger-fill" style="width:100%"></i><span>🍖 FOME <b id="hunger-txt"></b></span></div>
+      <div class="bar"><i id="thirst-fill" style="width:100%"></i><span>💧 SEDE <b id="thirst-txt"></b></span></div>
+      <div class="bar"><i id="sleep-fill" style="width:100%"></i><span>😴 SONO <b id="sleep-txt"></b></span></div>
+      <div class="bar"><i id="temp-fill" style="width:50%"></i><span>🌡 TEMP <b id="temp-txt"></b></span></div>
+      <div class="bar"><i id="weight-fill" style="width:0%"></i><span>⚖ PESO <b id="weight-txt"></b></span></div>
+    </div>
+    <div id="status-icons"></div>
+  </div>
+  <div>
+    <div id="compass"><div id="compass-strip"></div></div>
+    <div id="biome-label">—</div>
+    <div id="clock" style="text-align:center"></div>
+    <div id="cam-label" style="text-align:center"></div>
+  </div>
+  <div id="hud-right" class="pixel-panel" style="width:210px;font-size:11px">
+    <div id="clock2"></div>
+    <div id="seed-label"></div>
+    <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
+      <button id="btn-inv" class="blue">🎒 Inventário [I]</button>
+      <button id="btn-craft" class="blue">🔨 Craft [R]</button>
+      <button id="btn-build" class="blue">🏠 Construir [B]</button>
+      <button id="btn-map" class="blue">🗺 Mapa [M]</button>
+      <button id="btn-tamed" class="blue">🐾 Domados [T]</button>
+      <button id="btn-body" class="blue">🩹 Corpo [C]</button>
+      <button id="btn-help" class="blue">❓ Ajuda [H]</button>
+      <button id="btn-save" class="blue">💾 Salvar</button>
+      <button id="btn-sound" class="blue">🔊 Som</button>
+    </div>
+  </div>
+</div>
+
+<div id="hotbar" class="hidden"></div>
+<div id="msg-log"></div>
+<div id="interact-tip" class="hidden"></div>
+<div id="toast" class="hidden"></div>
+
+<!-- Inventário -->
+<div id="inv-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>🎒 Inventário — limite base 80 kg</h2>
+  <div id="inv-weight" class="small" style="margin-bottom:6px"></div>
+  <div id="inv-grid"></div>
+  <h3>Itens selecionados / usar</h3>
+  <div id="inv-detail" class="small"></div>
+  <div style="margin-top:10px"><button id="inv-close">Fechar [I/Esc]</button></div>
+</div></div>
+
+<!-- Craft -->
+<div id="craft-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>🔨 Livro de receitas / bancadas</h2>
+  <div class="small" id="craft-station"></div>
+  <div class="tabs" id="craft-tabs"></div>
+  <div id="craft-list"></div>
+  <div style="margin-top:10px"><button id="craft-close">Fechar [R/Esc]</button></div>
+</div></div>
+
+<!-- Construção -->
+<div id="build-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>🏠 Construção (na superfície — sem escavar)</h2>
+  <div class="small">Posicione com <span class="kbd">←</span><span class="kbd">→</span> / clique e confirme com <span class="kbd">Enter</span>. A construção nunca deforma o terreno.</div>
+  <div id="build-list" style="margin-top:8px"></div>
+  <div style="margin-top:10px"><button id="build-close">Fechar [B/Esc]</button></div>
+</div></div>
+
+<!-- Mapa -->
+<div id="map-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>🗺 Mapa do mundo (seed reproduzível)</h2>
+  <canvas id="map-canvas" width="720" height="340"></canvas>
+  <div class="small" id="map-legend"></div>
+  <div style="margin-top:10px"><button id="map-close">Fechar [M/Esc]</button></div>
+</div></div>
+
+<!-- Domados -->
+<div id="tamed-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>🐾 Criaturas domesticadas</h2>
+  <div id="tamed-list" class="small"></div>
+  <div style="margin-top:10px"><button id="tamed-close">Fechar [T/Esc]</button></div>
+</div></div>
+
+<!-- Corpo / ferimentos -->
+<div id="body-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>🩹 Estado físico — ferimentos por região corporal</h2>
+  <div id="body-diagram">
+    <canvas id="body-canvas" width="120" height="220" style="background:#1a2432;border:2px solid #5a4632;image-rendering:pixelated"></canvas>
+    <div id="body-list"></div>
+  </div>
+  <div class="small" style="margin-top:6px">Tratamento: bandagem (sangramento), torniquete (hemorragia grave), tala (fratura), remédio (infecção), repouso/dormir (recuperação). Use pelo inventário [I].</div>
+  <div style="margin-top:10px"><button id="body-close">Fechar [C/Esc]</button></div>
+</div></div>
+
+<!-- Ajuda -->
+<div id="help-overlay" class="overlay hidden"><div class="panel pixel-panel">
+  <h2>❓ Como jogar</h2>
+  <div id="help-list">
+    <b>Mover:</b> <span class="kbd">A</span><span class="kbd">D</span> / <span class="kbd">←</span><span class="kbd">→</span> &nbsp; <b>Pular:</b> <span class="kbd">Espaço</span> &nbsp; <b>Correr:</b> segurar <span class="kbd">Shift</span><br>
+    <b>Coletar/Interagir:</b> <span class="kbd">E</span> &nbsp; <b>Atacar:</b> <span class="kbd">F</span> ou clique &nbsp; <b>Comer/beber/usar:</b> selecione na hotbar e pressione <span class="kbd">E</span> perto do item / clique no inventário<br>
+    <b>Inventário:</b> <span class="kbd">I</span> &nbsp; <b>Receitas:</b> <span class="kbd">R</span> &nbsp; <b>Construir:</b> <span class="kbd">B</span> &nbsp; <b>Mapa:</b> <span class="kbd">M</span><br>
+    <b>Domados/comandos:</b> <span class="kbd">T</span> &nbsp; <b>Corpo/ferimentos:</b> <span class="kbd">C</span> &nbsp; <b>Câmera 1ª/3ª pessoa (2D):</b> <span class="kbd">V</span><br>
+    <b>Dormir:</b> deite-se em cama/rede/saco de dormir ou abrigo e pressione <span class="kbd">E</span> &nbsp; <b>Salvar:</b> botão 💾 (automático a cada 30s)<br>
+    <b>Regra de ouro:</b> você NUNCA escava a terra. Minere só rochas expostas e cavernas naturais. Colete fibra, pedra do chão, troncos caídos e árvores com machado.<br>
+    <b>Sobrevivência:</b> durma antes de 24h acordado, beba antes de 48h sem água e coma antes de 5 dias sem comida — ou as consequências fisiológicas serão fatais.<br>
+    <b>Domesticação:</b> aproxime-se devagar (sem correr), ofereça o alimento favorito com <span class="kbd">E</span>, trate ferimentos e crie vínculo. Depois use comandos no painel [T].<br>
+    <b>Montaria:</b> pressione <span class="kbd">E</span> em um animal domesticado com sela para montar. Ele carrega seu peso extra.
+  </div>
+  <div style="margin-top:10px"><button id="help-close">Fechar [H/Esc]</button></div>
+</div></div>
+
+<!-- Título / personagem -->
+<div id="title-screen" class="overlay"><div class="panel pixel-panel">
+  <h1>SOBREVIVÊNCIA PRIMITIVA</h1>
+  <div class="sub">— Mundo Vivo · versão 2D Pixel Art · JavaScript —</div>
+  <p class="small">Explore biomas, colete, construa, domestique animais e dinossauros, desça em cavernas naturais e sobreviva à fome, sede, sono e ferimentos. Sem escavar a terra — nunca.</p>
+  <canvas id="char-preview" width="48" height="64"></canvas>
+  <div id="char-opts"></div>
+  <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button id="btn-new">▶ Novo jogo</button>
+    <button id="btn-continue" class="blue">↩ Continuar</button>
+    <button id="btn-help2" class="blue">❓ Como jogar</button>
+  </div>
+  <div class="small" style="margin-top:8px">Seed do mundo: <input id="seed-input" value="ARKYT-2026" style="background:#111;color:#ffd97a;border:1px solid #5a4632;padding:4px;font-family:inherit"> (mesma seed = mesmo mapa)</div>
+</div></div>
+
+<div id="death-screen" class="overlay hidden"><div class="panel pixel-panel" style="text-align:center">
+  <h1>☠ VOCÊ MORREU</h1>
+  <p id="death-cause" class="small"></p>
+  <p class="small" id="death-stats"></p>
+  <div style="margin-top:12px"><button id="btn-respawn">Renascer no acampamento</button></div>
+</div></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
