@@ -6,7 +6,7 @@
 // ============================================================
 import { World, Weather, mulberry32, hashSeed } from './world.js';
 import { AudioSys } from './audio.js';
-import { drawPlayer, drawCreature, drawTree, drawRock, drawPlant, drawBuilding, drawPOI, drawCloud, cube, px } from './sprites.js';
+import { drawPlayer, drawCreature, drawTree, drawRock, drawPlant, drawBuilding, drawPOI, drawCloud, drawShadow, cube, px } from './sprites.js';
 import * as D from './data.js';
 import * as UI from './ui.js';
 
@@ -697,11 +697,18 @@ export class Game {
     const sunX = cv.width*(this.gameHour/24), sunY = cv.height*0.18;
     ctx.fillStyle = dayF>0.2 ? '#f8e88a' : '#d8dce8';
     ctx.fillRect(sunX-22, sunY-22, 44, 44); ctx.fillRect(sunX-14, sunY-30, 28, 8); ctx.fillRect(sunX-14, sunY+22, 28, 8);
-    // nuvens em cubos (parallax)
-    for(let i=0;i<7;i++){ const cxp=((i*340 - camX*0.25)%(cv.width+300))-150; drawCloud(ctx, cxp, 40+(i%3)*36, 90+(i%3)*30); }
-    // parallax: colinas distantes em blocos
-    ctx.fillStyle = 'rgba(60,90,70,0.35)';
-    for(let i=0;i<8;i++){ const hx=((i*420 - camX*0.3)%(cv.width+400))-200; ctx.fillRect(hx, cv.height*0.45, 300, cv.height*0.3); }
+    // nuvens em cubos (parallax distante)
+    for(let i=0;i<7;i++){ const cxp=((i*340 - camX*0.15)%(cv.width+300))-150; drawCloud(ctx, cxp, 40+(i%3)*36, 90+(i%3)*30); }
+    // 2.5D: 3 camadas de parallax (montanhas distantes, colinas, árvores próximas)
+    const layers = [
+      { f:0.2, cor:'rgba(120,140,170,0.45)', h:0.42, w:420 },
+      { f:0.4, cor:'rgba(70,110,90,0.55)', h:0.5, w:320 },
+      { f:0.65, cor:'rgba(45,90,60,0.7)', h:0.58, w:220 },
+    ];
+    for(const L of layers){
+      ctx.fillStyle = L.cor;
+      for(let i=0;i<10;i++){ const hx=((i*L.w - camX*L.f)%(cv.width+L.w+200))-100; ctx.fillRect(hx, cv.height*L.h, L.w, cv.height*(1-L.h)); }
+    }
     ctx.save();
     ctx.scale(z,z); ctx.translate(-camX,-camY);
     const x0 = camX-50, x1 = camX + cv.width/z + 50;
@@ -747,11 +754,17 @@ export class Game {
     for(const b of this.buildings) if(b.x>x0&&b.x<x1) drawBuilding(ctx,b,this.time);
     // fantasma de construção
     if(this.buildMode){ ctx.globalAlpha=0.6; drawBuilding(ctx,{nome:this.buildMode,x:this.buildX,y:this.world.groundY(this.buildX)},this.time); ctx.globalAlpha=1; }
-    // entidades
-    for(const e of this.entities) if(e.x>x0&&e.x<x1) drawCreature(ctx,e);
-    // jogador (ou montaria)
-    if(p.riding) drawCreature(ctx,p.riding);
-    drawPlayer(ctx,{x:p.x,y:p.y,dir:p.dir,pose:p.pose,walkPhase:p.walkPhase,skin:this.char.skin,hair:this.char.hair,hairStyle:this.char.hairStyle,beard:this.char.beard,shirt:this.char.shirt,pants:'#4a3a2e',tool:p.tool,riding:!!p.riding,sleeping:p.sleeping,swim:p.swimming,climb:p.climbing});
+    // 2.5D: sombras projetadas no chão
+    for(const e of this.entities) if(e.x>x0&&e.x<x1) drawShadow(ctx,e.x,e.y,18);
+    drawShadow(ctx,p.x,p.y,16);
+    // 2.5D: ordem de pintura por profundidade (mais alto = mais atrás)
+    const drawables = this.entities.filter(e=>e.x>x0&&e.x<x1).map(e=>({y:e.y, fn:()=>drawCreature(ctx,e)}));
+    drawables.push({y:p.y, fn:()=>{
+      if(p.riding) drawCreature(ctx,p.riding);
+      drawPlayer(ctx,{x:p.x,y:p.y,dir:p.dir,pose:p.pose,walkPhase:p.walkPhase,skin:this.char.skin,hair:this.char.hair,hairStyle:this.char.hairStyle,beard:this.char.beard,shirt:this.char.shirt,pants:'#4a3a2e',tool:p.tool,riding:!!p.riding,sleeping:p.sleeping,swim:p.swimming,climb:p.climbing});
+    }});
+    drawables.sort((a,b)=>a.y-b.y);
+    for(const d of drawables) d.fn();
     // partículas
     for(const pt of this.particles) px(ctx,pt.x,pt.y,4,4,pt.cor);
     // chuva
@@ -769,6 +782,12 @@ export class Game {
     if(this.camMode==='1P'){ const g=ctx.createRadialGradient(cv.width/2,cv.height/2,cv.height*0.3,cv.width/2,cv.height/2,cv.height*0.8); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.55)'); ctx.fillStyle=g; ctx.fillRect(0,0,cv.width,cv.height); }
     if(p.sleeping){ ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle='#fff'; ctx.font='20px monospace'; ctx.textAlign='center'; ctx.fillText('💤 Dormindo...', cv.width/2, cv.height/2); }
     if(this.world.inCave(p.x,p.y)){ ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fillRect(0,0,cv.width,cv.height); }
+    // 2.5D: primeiro plano (grama desfocada passando na frente) + névoa de profundidade
+    ctx.fillStyle='rgba(30,60,35,0.85)';
+    for(let i=0;i<14;i++){ const fx=((i*130 - camX*1.35*z)%(cv.width+160))-80; ctx.fillRect(fx, cv.height-26-(i%3)*8, 60, 30+(i%3)*10); }
+    const fog = ctx.createLinearGradient(0,0,0,cv.height);
+    fog.addColorStop(0,'rgba(200,220,240,0.10)'); fog.addColorStop(0.5,'rgba(200,220,240,0)'); fog.addColorStop(1,'rgba(20,30,20,0.12)');
+    ctx.fillStyle=fog; ctx.fillRect(0,0,cv.width,cv.height);
   }
 }
 function p_fracture(p, region){ p.body[region].fracture = true; }

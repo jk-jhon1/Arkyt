@@ -10,15 +10,29 @@
 
 export function px(ctx,x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
 function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt; r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b)); return `rgb(${r},${g},${b})`; }
-// cubo voxel: face frontal com salpicos, topo claro, base escura
+// cubo voxel 2.5D: face frontal + topo em paralelogramo + lateral direita
+// (efeito 3D como nas pranchas), com salpicos de textura.
 export function cube(ctx,x,y,w,h,base,seed=0){
-  px(ctx,x,y,w,h,base);
-  px(ctx,x,y,w,Math.max(2,h*0.18),shade(base,38)); // topo iluminado
-  px(ctx,x,y+h-Math.max(2,h*0.16),w,Math.max(2,h*0.16),shade(base,-42)); // base sombreada
+  const dep = Math.min(7, Math.max(2, h*0.28)); // profundidade do cubo
+  const top = shade(base,42), side = shade(base,-46);
+  // face lateral direita (paralelogramo)
+  ctx.fillStyle = side;
+  ctx.beginPath(); ctx.moveTo(x+w,y+dep); ctx.lineTo(x+w+dep,y); ctx.lineTo(x+w+dep,y+h); ctx.lineTo(x+w,y+h+dep); ctx.closePath(); ctx.fill();
+  // face superior (paralelogramo)
+  ctx.fillStyle = top;
+  ctx.beginPath(); ctx.moveTo(x,y+dep); ctx.lineTo(x+dep,y); ctx.lineTo(x+w+dep,y); ctx.lineTo(x+w,y+dep); ctx.closePath(); ctx.fill();
+  // face frontal
+  px(ctx,x,y+dep,w,h,base);
+  px(ctx,x,y+dep+h-Math.max(2,h*0.16),w,Math.max(2,h*0.16),shade(base,-42)); // base sombreada
   // salpicos de textura (determinísticos por posição)
   let s = (Math.abs(Math.round(x*7+y*13+seed*31))%97)/97;
   const n = Math.max(2, Math.floor(w*h/220));
-  for(let i=0;i<n;i++){ s=(s*16807)%2147483647; const rx=x+(s%Math.max(1,w-4)), ry=y+((s>>3)%Math.max(1,h-4)); px(ctx,rx,ry,3,3, (i%2? shade(base,-28):shade(base,26))); }
+  for(let i=0;i<n;i++){ s=(s*16807)%2147483647; const rx=x+(s%Math.max(1,w-4)), ry=y+dep+((s>>3)%Math.max(1,h-4)); px(ctx,rx,ry,3,3, (i%2? shade(base,-28):shade(base,26))); }
+}
+// sombra projetada no chão (profundidade 2.5D)
+export function drawShadow(ctx,x,y,w){
+  ctx.fillStyle='rgba(10,20,10,0.35)';
+  ctx.beginPath(); ctx.ellipse(x,y+3,w,Math.max(3,w*0.22),0,0,7); ctx.fill();
 }
 function eye(ctx,x,y){ px(ctx,x,y,3,3,'#141414'); px(ctx,x+1,y,1,1,'#fff'); }
 

@@ -1,6 +1,6 @@
-# Sobrevivência Primitiva — Mundo Vivo (2D Pixel Art)
+# Sobrevivência Primitiva — Mundo Vivo (2.5D Voxel)
 
-Jogo de sobrevivência **2D em pixel art voxelizada**, desenvolvido em **JavaScript** (Canvas 2D), com sprites redesenhados a partir das pranchas de modelo (personagem de camisa vermelha xadrez e calça azul com mochila; cavalo marrom de patas brancas; capivara; lobo cinza; urso; crocodilo; tubarão; golfinho; elefante; rinoceronte; triceratops laranja; dinossauros de pescoço longo; blocos de minério salpicados; fornalha, baú e cama vermelha; terreno em blocos; sol e nuvens em cubos),
+Jogo de sobrevivência **2.5D em pixel art voxelizada**, desenvolvido em **JavaScript** (Canvas 2D), com sprites redesenhados a partir das pranchas de modelo e renderização 2.5D (cubos com topo/lateral 3D, parallax em 3 camadas, sombras projetadas, névoa de profundidade e primeiro plano) (personagem de camisa vermelha xadrez e calça azul com mochila; cavalo marrom de patas brancas; capivara; lobo cinza; urso; crocodilo; tubarão; golfinho; elefante; rinoceronte; triceratops laranja; dinossauros de pescoço longo; blocos de minério salpicados; fornalha, baú e cama vermelha; terreno em blocos; sol e nuvens em cubos),
 seguindo o documento de visão *“Sobrevivência Primitiva — Mundo Vivo”* **à risca e sem
 remover nenhum elemento**. A única adaptação é a dimensão: o prompt original pedia 3D
 voxelizado; aqui tudo foi convertido para **2D pixel art** (formas cúbicas 2D, cores
