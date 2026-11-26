@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sobrevivência Primitiva — Mundo Vivo (2.5D Voxel)</title>
+<title>Sobrevivência Primitiva — Mundo Vivo</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:100%;height:100%;background:#0b0e14;overflow:hidden;font-family:"Courier New",monospace;color:#e8e4d8}
@@ -39,6 +39,7 @@
   #status-icons{font-size:12px;line-height:1.5;text-shadow:1px 1px 0 #000}
   #hotbar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:5}
   .slot{width:44px;height:44px;background:rgba(16,20,28,.85);border:2px solid #5a4632;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;position:relative;cursor:pointer}
+  .item-sprite{width:30px;height:30px;object-fit:contain;image-rendering:pixelated;vertical-align:middle}
   .slot.sel{border-color:#ffd97a;box-shadow:0 0 8px #ffd97a}
   .slot .n{position:absolute;top:1px;left:3px;font-size:9px;color:#aaa}
   .slot .q{position:absolute;bottom:1px;right:3px;font-size:10px;color:#fff;text-shadow:1px 1px 0 #000}
@@ -174,10 +175,11 @@
 <div id="help-overlay" class="overlay hidden"><div class="panel pixel-panel">
   <h2>❓ Como jogar</h2>
   <div id="help-list">
-    <b>Mover (2.5D):</b> <span class="kbd">A</span><span class="kbd">D</span> lados · <span class="kbd">W</span><span class="kbd">S</span> profundidade (entrar/sair da tela) &nbsp; <b>Pular:</b> <span class="kbd">Espaço</span> &nbsp; <b>Correr:</b> segurar <span class="kbd">Shift</span><br>
+    <b>Mover (vista de cima):</b> <span class="kbd">A</span><span class="kbd">D</span> lados · <span class="kbd">W</span><span class="kbd">S</span> cima/baixo &nbsp; <b>Correr:</b> segurar <span class="kbd">Shift</span><br>
+    <b>Posicionar estação criada:</b> selecione a estrutura e pressione <span class="kbd">Q</span>, depois <span class="kbd">Enter</span><br>
     <b>Coletar/Interagir:</b> <span class="kbd">E</span> &nbsp; <b>Atacar:</b> <span class="kbd">F</span> ou clique &nbsp; <b>Comer/beber/usar:</b> selecione na hotbar e pressione <span class="kbd">E</span> perto do item / clique no inventário<br>
     <b>Inventário:</b> <span class="kbd">I</span> &nbsp; <b>Receitas:</b> <span class="kbd">R</span> &nbsp; <b>Construir:</b> <span class="kbd">B</span> &nbsp; <b>Mapa:</b> <span class="kbd">M</span><br>
-    <b>Domados/comandos:</b> <span class="kbd">T</span> &nbsp; <b>Corpo/ferimentos:</b> <span class="kbd">C</span> &nbsp; <b>Câmera 1ª/3ª pessoa (2D):</b> <span class="kbd">V</span><br>
+    <b>Domados/comandos:</b> <span class="kbd">T</span> &nbsp; <b>Corpo/ferimentos:</b> <span class="kbd">C</span> &nbsp; <b>Zoom da câmera:</b> <span class="kbd">V</span><br>
     <b>Dormir:</b> deite-se em cama/rede/saco de dormir ou abrigo e pressione <span class="kbd">E</span> &nbsp; <b>Salvar:</b> botão 💾 (automático a cada 30s)<br>
     <b>Regra de ouro:</b> você NUNCA escava a terra. Minere só rochas expostas e cavernas naturais. Colete fibra, pedra do chão, troncos caídos e árvores com machado.<br>
     <b>Sobrevivência:</b> durma antes de 24h acordado, beba antes de 48h sem água e coma antes de 5 dias sem comida — ou as consequências fisiológicas serão fatais.<br>
@@ -190,8 +192,8 @@
 <!-- Título / personagem -->
 <div id="title-screen" class="overlay"><div class="panel pixel-panel">
   <h1>SOBREVIVÊNCIA PRIMITIVA</h1>
-  <div class="sub">— Mundo Vivo · versão 2.5D Voxel · JavaScript —</div>
-  <p class="small">Explore biomas, colete, construa, domestique animais e dinossauros, desça em cavernas naturais e sobreviva à fome, sede, sono e ferimentos. Sem escavar a terra — nunca.</p>
+  <div class="sub">— Mundo Vivo · vista de cima · JavaScript —</div>
+  <p class="small">Explore biomas, colete, construa, domestique animais e dinossauros, encontre entradas de cavernas naturais e sobreviva à fome, sede, sono e ferimentos. Sem escavar a terra — nunca.</p>
   <canvas id="char-preview" width="48" height="64"></canvas>
   <div id="char-opts"></div>
   <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
@@ -199,7 +201,7 @@
     <button id="btn-continue" class="blue">↩ Continuar</button>
     <button id="btn-help2" class="blue">❓ Como jogar</button>
   </div>
-  <div class="small" style="margin-top:8px">Seed do mundo: <input id="seed-input" value="ARKYT-2026" style="background:#111;color:#ffd97a;border:1px solid #5a4632;padding:4px;font-family:inherit"> (mesma seed = mesmo mapa)</div>
+  <div class="small" style="margin-top:8px">Seed do mundo: <input id="seed-input" placeholder="aleatória" style="background:#111;color:#ffd97a;border:1px solid #5a4632;padding:4px;font-family:inherit"> (vazia = mundo novo; mesma seed = mesmo mapa)</div>
 </div></div>
 
 <div id="death-screen" class="overlay hidden"><div class="panel pixel-panel" style="text-align:center">
@@ -209,6 +211,6 @@
   <div style="margin-top:12px"><button id="btn-respawn">Renascer no acampamento</button></div>
 </div></div>
 
-<script type="module" src="src/main.js"></script>
+<script type="module" src="src/main.js?v=20261126l"></script>
 </body>
 </html>
