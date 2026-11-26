@@ -8,6 +8,45 @@
 // triceratops laranja, dinossauros de pescoço longo etc.
 // ============================================================
 
+// Recortes das pranchas fornecidas no PDF. Os demais tipos continuam com o
+// desenhador procedural; não há modelos individuais para todos no documento.
+const MODEL_FILES = {
+  personagem:'personagem', cavalo:'cavalo', capivara:'capivara', lobo:'lobo',
+  urso:'urso', crocodilo:'crocodilo', 'tubarão':'tubarao', golfinho:'golfinho',
+  elefante:'elefante', rinoceronte:'rinoceronte', Triceratops:'triceratops',
+  fornalha:'fornalha',
+  ferro:'ferro', cobre:'cobre', ouro:'ouro', carvão:'carvao',
+  'árvore aprovada':'arvore', picareta:'picareta',
+  'entradas de cavernas':'poi-caverna', 'cachoeiras':'poi-cachoeira', 'ruínas':'poi-ruinas', 'acampamentos':'poi-acampamento', 'aldeias abandonadas':'poi-aldeia', 'naufrágios':'poi-naufragio', 'fósseis':'poi-fossil', 'locais secretos':'poi-segredo', 'torres de observação':'posto',
+  'pinheiro':'pinheiro', 'palmeira':'palmeira', 'fibra':'fibra', 'capim':'fibra', 'fruta':'fruta', 'cogumelo':'cogumelo', 'planta medicinal':'planta-medicinal', 'mel':'mel', 'pedra do chão':'pedra-chao', 'semente':'semente', 'folha':'folha',
+  'posto de observação':'posto', 'escada':'escada', 'carroça':'carroca', 'guindaste simples':'guindaste', 'bancada':'bancada', 'machado simples':'machado', 'lança':'lanca', 'arco':'arco', 'rocha aprovada':'rocha', 'tronco caído':'tronco',
+  'cerca':'cerca', 'portão':'portao', 'estábulo':'estabulo', 'baia':'baia', 'doca':'doca', 'barco':'barco', 'armazém':'armazem', 'horta (canteiro)':'horta', 'armadilha':'armadilha', 'cama':'cama',
+  'serpente venenosa':'serpente', 'peixe':'peixe', 'foca':'foca', 'lula':'lula', 'crustáceo':'crustaceo', 'abrigo':'abrigo', 'casa':'casa', 'torre':'torre', 'ponte':'ponte', 'fogueira':'fogueira',
+  'búfalo':'bufalo', 'hipopótamo':'hipopotamo', 'gorila':'gorila', 'javali':'javali', 'alce':'alce', 'touro':'touro', 'leão':'leao', 'tigre':'tigre', 'onça':'onca', 'hiena':'hiena',
+  'galinha':'galinha', 'pato':'pato', 'coelho':'coelho', 'cabra':'cabra', 'ovelha':'ovelha', 'vaca':'vaca', 'camelo':'camelo', 'cervo':'cervo',
+'Tiranossauro rex':'tiranossauro', 'Velociraptor':'velociraptor', 'Estegossauro':'estegossauro', 'Diplodoco':'diplodoco', 'Braquiossauro':'braquiossauro', 'Anquilossauro':'anquilossauro', 'Parasaurolophus':'parasaurolophus', 'Pteranodonte':'pteranodonte', 'Espinossauro':'espinossauro', 'Carnotauro':'carnotauro',
+'Iguanodonte':'iguanodonte', 'Mosassauro':'mosassauro', 'Plesiossauro':'plesiossauro', 'Compsognato':'compsognato', 'baleia':'baleia', 'orca':'orca', 'tartaruga marinha':'tartaruga-marinha', 'polvo':'polvo', 'raia':'raia'
+};
+const approvedModels = new Set(['personagem','lobo','cavalo','capivara','urso','crocodilo','triceratops','tubarao','arvore','fornalha','picareta','tiranossauro','velociraptor','estegossauro','diplodoco','braquiossauro','anquilossauro','parasaurolophus','pteranodonte','espinossauro','carnotauro','iguanodonte','mosassauro','plesiossauro','compsognato','baleia','golfinho','orca','tartaruga-marinha','polvo','raia','galinha','pato','coelho','cabra','ovelha','vaca','camelo','cervo','elefante','rinoceronte','bufalo','hipopotamo','gorila','javali','alce','touro','leao','tigre','onca','hiena','serpente','peixe','foca','lula','crustaceo','abrigo','casa','torre','ponte','fogueira','cerca','portao','estabulo','baia','doca','barco','armazem','horta','armadilha','cama','posto','escada','carroca','guindaste','bancada','machado','lanca','arco','rocha','tronco','pinheiro','palmeira','fibra','fruta','cogumelo','planta-medicinal','mel','pedra-chao','semente','folha','poi-caverna','poi-cachoeira','poi-ruinas','poi-acampamento','poi-aldeia','poi-naufragio','poi-fossil','poi-segredo']);
+const modelImages = {};
+const modelLoadListeners = new Set();
+export function onModelLoad(listener){ modelLoadListeners.add(listener); return ()=>modelLoadListeners.delete(listener); }
+if(typeof Image !== 'undefined') for(const file of new Set(Object.values(MODEL_FILES))){
+  const image=new Image();
+  image.onload=()=>{ for(const listener of modelLoadListeners) listener(); };
+  image.onerror=()=>console.warn(`Modelo não carregado: ${file}; usando desenho alternativo.`);
+  const folder=approvedModels.has(file)?'sprites-aprovados':'modelos';
+  image.src=`./assets/${folder}/${file}.png?v=20261126`; modelImages[file]=image;
+}
+function drawModel(ctx, name, x, y, height, flip=false){
+  const image=modelImages[MODEL_FILES[name]];
+  if(!image || !image.complete || !image.naturalWidth) return false;
+  const width=height*image.naturalWidth/image.naturalHeight;
+  ctx.save(); ctx.translate(x,y); if(flip) ctx.scale(-1,1);
+  ctx.imageSmoothingEnabled=false; ctx.drawImage(image,-width/2,-height,width,height); ctx.restore();
+  return true;
+}
+
 export function px(ctx,x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
 function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt; r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b)); return `rgb(${r},${g},${b})`; }
 // cubo voxel 2.5D: face frontal + topo em paralelogramo + lateral direita
@@ -39,6 +78,14 @@ function eye(ctx,x,y){ px(ctx,x,y,3,3,'#141414'); px(ctx,x+1,y,1,1,'#fff'); }
 // ---------------- Personagem (modelo: camisa vermelha xadrez, calça azul) ----------------
 export function drawPlayer(ctx, o){
   const x=o.x, y=o.y, d=o.dir||1, ph=o.walkPhase||0;
+  // O modelo da prancha é usado para a aparência inicial; outras escolhas
+  // conservam o desenho personalizável em vez de ignorar as opções do jogador.
+  const defaultLook=o.skin==='#e0b088' && o.hair==='#2a1a0a' && o.shirt==='#c84a3a' && o.hairStyle==='curto' && o.beard;
+  const modelBob=(o.pose==='andar'||o.pose==='correr') ? Math.abs(Math.sin(ph))*2 : 0;
+  if(defaultLook && !o.sleeping && !o.riding && drawModel(ctx,'personagem',x,y-modelBob,54,d<0)){
+    if(o.tool) drawTool(ctx,x+12*d,y-24-modelBob,o.tool,d);
+    return;
+  }
   const legSwing = (o.pose==='andar'||o.pose==='correr') ? Math.sin(ph)*5 : 0;
   const legSwing2 = (o.pose==='andar'||o.pose==='correr') ? Math.cos(ph)*5 : 0;
   const bob = (o.pose==='andar'||o.pose==='correr') ? Math.abs(Math.sin(ph))*2 : 0;
@@ -77,6 +124,8 @@ export function drawPlayer(ctx, o){
   if(o.beard) px(ctx,x-6,headY+9,12,4,o.hair);
 }
 function drawTool(ctx,x,y,tool,d){
+  const height={picareta:22,'machado simples':22,'lança':28,arco:24}[tool];
+  if(height && drawModel(ctx,tool,x,y+12,height,d<0)) return;
   if(tool==='machado simples'){ px(ctx,x,y,3,12,'#8a5a2e'); px(ctx,x-4,y-3,9,5,'#c83a2e'); px(ctx,x+2,y-3,4,5,'#d8dce2'); }
   else if(tool==='picareta'){ px(ctx,x,y,3,12,'#8a5a2e'); px(ctx,x-6,y-4,13,4,'#9aa2ac'); }
   else if(tool==='lança'){ px(ctx,x,y-6,3,18,'#8a5a2e'); px(ctx,x-1,y-10,5,6,'#d8dce2'); }
@@ -86,6 +135,9 @@ function drawTool(ctx,x,y,tool,d){
 // ---------------- Criaturas voxel (fiéis às pranchas) ----------------
 export function drawCreature(ctx, c){
   const x=c.x, y=c.y, d=c.dir||1, ph=c.walkPhase||0;
+  const heights={cavalo:65,capivara:35,lobo:46,urso:58,crocodilo:41,'tubarão':50,golfinho:37,elefante:78,rinoceronte:66,Triceratops:76,'Tiranossauro rex':92,'Velociraptor':48,'Estegossauro':78,'Diplodoco':112,'Braquiossauro':120,'Anquilossauro':68,'Parasaurolophus':70,'Pteranodonte':55,'Espinossauro':95,'Carnotauro':76,'Iguanodonte':70,'Mosassauro':82,'Plesiossauro':70,'Compsognato':32,'baleia':86,'orca':72,'tartaruga marinha':40,'polvo':42,'raia':34,'galinha':30,'pato':29,'coelho':29,'cabra':46,'ovelha':47,'vaca':58,'camelo':78,'cervo':69,'búfalo':68,'hipopótamo':68,'gorila':63,'javali':45,'alce':78,'touro':64,'leão':62,'tigre':58,'onça':53,'hiena':47,'serpente venenosa':31,'peixe':26,'foca':38,'lula':38,'crustáceo':26};
+  const bounce=c.estado==='vagar' ? Math.abs(Math.sin(ph))*1.5 : 0;
+  if(heights[c.nome] && drawModel(ctx,c.nome,x,y-bounce,heights[c.nome]*(c.filhote?.55:1),c.nome==='golfinho' ? d>0 : d<0)) return;
   const tam = {P:0.55,M:0.95,G:1.45,GG:2.1,GGG:2.9}[c.tam]||1;
   const w=30*tam, h=16*tam;
   const legSwing=Math.sin(ph)*4*tam;
@@ -261,18 +313,27 @@ export function drawCreature(ctx, c){
 // ---------------- Cenário voxel ----------------
 export function drawTree(ctx,t){
   const x=t.x, y=t.y;
+  if(t.tipo==='árvore' && drawModel(ctx,'árvore aprovada',x,y,96)) return;
+  if(t.tipo==='pinheiro' && drawModel(ctx,'pinheiro',x,y,104)) return;
+  // A referência da palmeira termina no tronco: prolongamos a base até o solo.
+  if(t.tipo==='palmeira' && drawModel(ctx,'palmeira',x,y-12,108)){ cube(ctx,x-4,y-16,8,16,'#79532f',4); return; }
   if(t.tipo==='palmeira'){ cube(ctx,x-4,y-64,8,64,'#8a5a2e',1); cube(ctx,x-24,y-84,48,14,'#2e9a3a',2); cube(ctx,x-16,y-94,32,12,'#3ab84a',3); }
   else if(t.tipo==='pinheiro'){ cube(ctx,x-4,y-30,8,30,'#6a4a2e',1); cube(ctx,x-18,y-78,36,30,'#2a7a3a',2); cube(ctx,x-13,y-98,26,24,'#3a9a4a',3); }
   else { cube(ctx,x-5,y-44,10,44,'#7a5a32',1); cube(ctx,x-22,y-82,44,40,'#2e9a3a',2); cube(ctx,x-15,y-94,30,14,'#3ab84a',3); }
 }
 export function drawRock(ctx,r){
   const x=r.x, y=r.y;
+  if(drawModel(ctx,'rocha aprovada',x,y,34)){
+    const ore=r.cor||'#d8d8d8'; px(ctx,x-9,y-19,4,4,ore); px(ctx,x+5,y-11,4,4,ore); return;
+  }
   cube(ctx,x-17,y-17,34,17,'#8a929c',5);
   const cor=r.cor||'#d8d8d8';
   px(ctx,x-10,y-13,6,6,cor); px(ctx,x+3,y-9,6,6,cor); px(ctx,x-2,y-16,5,5,cor); px(ctx,x+8,y-14,4,4,cor); // veios salpicados
 }
 export function drawPlant(ctx,p,t){
   const x=p.x, y=p.y, sway=Math.sin(t*2+p.x*0.01)*2;
+  const height={'tronco caído':32, 'pedra do chão':17, fruta:32, cogumelo:24, fibra:27, capim:27, 'planta medicinal':28, mel:30, semente:25, folha:25}[p.tipo]||25;
+  if(drawModel(ctx,p.tipo,x,y,height)) return;
   if(p.tipo==='tronco caído'){ cube(ctx,x-19,y-9,38,9,'#8a5a2e',1); px(ctx,x-19,y-9,38,3,'#c8a86a'); }
   else if(p.tipo==='pedra do chão'){ cube(ctx,x-8,y-8,16,8,'#9aa2ac',2); }
   else if(p.tipo==='fruta'){ cube(ctx,x-3,y-16,6,16,'#6a4a2e',1); cube(ctx,x-11,y-27,22,13,'#2e9a3a',2); px(ctx,x-7,y-24,5,5,'#e84a3a'); px(ctx,x+3,y-22,5,5,'#e84a3a'); }
@@ -283,6 +344,11 @@ export function drawPlant(ctx,p,t){
 }
 export function drawBuilding(ctx,b,t){
   const x=b.x, y=b.y;
+  const modelHeight={cama:45,abrigo:70,casa:90,torre:110,ponte:45,fogueira:45,'cerca':50,'portão':55,'estábulo':88,'baia':58,'doca':47,'barco':76,'armazém':56,'horta (canteiro)':40,'armadilha':50,'posto de observação':110,'escada':80,'carroça':55,'guindaste simples':100,'bancada':50};
+  if(drawModel(ctx,b.nome,x,y,modelHeight[b.nome]||50)){
+    if(b.crop){ const g=Math.min(1,Math.max(0,b.crop.progress||0)); px(ctx,x-3,y-24-g*12,6,6,b.crop.ready?'#f2c14e':'#43ae4f'); }
+    return;
+  }
   switch(b.nome){
     case 'fogueira': cube(ctx,x-13,y-9,26,9,'#8a929c',1); px(ctx,x-8,y-17,16,9,'#e87a2e'); px(ctx,x-5,y-24,10,9,'#f2c14e'); px(ctx,x-3,y-31,6,9,'#f8e8a8'); break;
     case 'bancada': cube(ctx,x-21,y-17,42,9,'#c8a86a',1); cube(ctx,x-19,y-8,7,8,'#8a5a2e',2); cube(ctx,x+12,y-8,7,8,'#8a5a2e',2); px(ctx,x-8,y-22,10,5,'#9aa2ac'); break;
@@ -308,6 +374,8 @@ export function drawBuilding(ctx,b,t){
 }
 export function drawPOI(ctx,p){
   const x=p.x, y=p.y;
+  const height={'entradas de cavernas':78,'cachoeiras':105,'ruínas':80,'acampamentos':75,'aldeias abandonadas':95,'naufrágios':70,'fósseis':40,'locais secretos':65,'torres de observação':110};
+  if(height[p.tipo] && drawModel(ctx,p.tipo,x,y,height[p.tipo])) return;
   if(p.tipo==='cachoeiras'){ px(ctx,x-15,y-62,30,62,'#5ab0e8'); px(ctx,x-15,y-62,30,7,'#b8e8f8'); px(ctx,x-9,y-40,4,22,'#fff'); px(ctx,x+3,y-30,4,32,'#fff'); }
   else if(p.tipo==='ruínas'||p.tipo==='aldeias abandonadas'){ cube(ctx,x-25,y-32,11,32,'#9aa2ac',1); cube(ctx,x+10,y-24,13,24,'#8a929c',2); cube(ctx,x-25,y-37,50,7,'#7a828c',3); }
   else if(p.tipo==='acampamentos'){ cube(ctx,x-17,y-17,34,17,'#c8a86a',1); px(ctx,x-5,y-32,10,17,'#c83a2e'); }

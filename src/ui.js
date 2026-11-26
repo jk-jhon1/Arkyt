@@ -1,12 +1,25 @@
+import { MAP_H, TILE } from './topdown.js?v=20261126l';
 // ============================================================
 // ui/ — HUD pixelizado, inventário, peso, estado físico,
 // fome/sede/sono/temperatura, mapa, bússola, livro de receitas,
 // lista de domados. Sem lógica de jogo acoplada (eventos).
 // ============================================================
-import * as D from './data.js';
-import { WORLD_W, SEA_Y } from './data.js';
+import * as D from './data.js?v=20261126l';
+import { WORLD_W, SEA_Y } from './data.js?v=20261126l';
 
 const $ = id => document.getElementById(id);
+// Imagens dos equipamentos já produzidos; outros itens mantêm seu ícone original.
+const ITEM_SPRITES = {
+  mochila:'mochila', sela:'sela', pedra:'pedra-chao', madeira:'tronco', fibra:'fibra',
+  folha:'folha', capim:'fibra', semente:'semente', fruta:'fruta', cogumelo:'cogumelo',
+  mel:'mel', 'planta medicinal':'planta-medicinal', 'machado simples':'machado',
+  picareta:'picareta', 'lança':'lanca', arco:'arco', fogueira:'fogueira',
+  bancada:'bancada', fornalha:'fornalha', cama:'cama', barco:'barco'
+};
+function itemIcon(item){
+  const file=ITEM_SPRITES[item];
+  return file ? `<img class="item-sprite" src="./assets/sprites-aprovados/${file}.png?v=20261126" alt="">` : ((D.ITEMS[item]||{}).icone||'📦');
+}
 const OVERLAYS = ['inv-overlay','craft-overlay','build-overlay','map-overlay','tamed-overlay','body-overlay','help-overlay'];
 let craftTab = 'todas';
 
@@ -38,10 +51,10 @@ export function updateHUD(g){
   $('weight-txt').textContent = w.toFixed(1)+' / '+cap+' kg';
   const hh=Math.floor(g.gameHour), mm=Math.floor((g.gameHour-hh)*60);
   $('clock').textContent = `☀️ Dia ${g.day} · ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} · ${g.weather.tipo}`;
-  $('clock2').innerHTML = `Seed: <b>${g.world.seedStr}</b><br>Pos: ${Math.round(p.x)} m<br>Entidades: ${g.entities.length} · Domados: ${g.entities.filter(e=>e.tamed).length}`;
+  $('clock2').textContent = `Seed: ${g.world.seedStr} · Pos: ${Math.round(p.x)}, ${Math.round(p.mapY ?? MAP_H/2)} · Entidades: ${g.entities.length} · Domados: ${g.entities.filter(e=>e.tamed).length}`;
   $('seed-label').textContent = `Bioma: ${g.world.biome(p.x).nome}`;
   $('biome-label').textContent = `📍 ${g.world.biome(p.x).nome} · ${g.world.tempAt(p.x,g.gameHour,g.weather.tipo)}°C`;
-  $('cam-label').textContent = g.camMode==='1P' ? '🎥 1ª pessoa (2D zoom próximo) [V]' : '🎥 3ª pessoa (2D visão afastada) [V]';
+  $('cam-label').textContent = g.camMode==='1P' ? '🔎 Visão aproximada [V]' : '🔎 Visão afastada [V]';
   // bússola
   const strip=$('compass-strip');
   const pts=['N','NE','L','SE','S','SO','O','NO'];
@@ -69,7 +82,7 @@ export function renderHotbar(g){
   for(let i=0;i<6;i++){
     const s=g.inventory[i];
     const d=document.createElement('div'); d.className='slot'+(g.selectedSlot===i?' sel':'');
-    d.innerHTML = s ? `<span class="n">${i+1}</span><span>${(D.ITEMS[s.item]||{}).icone||'📦'}</span><span class="q">${s.qtd}</span><span class="nm">${s.item.split(' ')[0]}</span>` : `<span class="n">${i+1}</span>`;
+    d.innerHTML = s ? `<span class="n">${i+1}</span><span>${itemIcon(s.item)}</span><span class="q">${s.qtd}</span><span class="nm">${s.item.split(' ')[0]}</span>` : `<span class="n">${i+1}</span>`;
     d.onclick=()=>{ g.selectedSlot=i; renderHotbar(g); };
     hb.appendChild(d);
   }
@@ -82,7 +95,7 @@ export function renderInventory(g){
   g.inventory.forEach((s,i)=>{
     const def=D.ITEMS[s.item]||{icone:'📦',peso:0.4,desc:''};
     const d=document.createElement('div'); d.className='slot'+(g.selectedSlot===i?' sel':'');
-    d.innerHTML=`<span>${def.icone}</span><span class="q">${s.qtd}</span><span class="nm">${s.item}</span>`;
+    d.innerHTML=`<span>${itemIcon(s.item)}</span><span class="q">${s.qtd}</span><span class="nm">${s.item}</span>`;
     d.title=`${s.item} — ${def.peso} kg cada — ${def.desc}`;
     d.onclick=()=>{ g.selectedSlot=i; g.useSelected(); renderInventory(g); };
     grid.appendChild(d);
@@ -102,12 +115,12 @@ export function openCraft(g){
     b.onclick=()=>{ craftTab=t; openCraft(g); }; tabs.appendChild(b);
   }
   const list=$('craft-list'); list.innerHTML='';
-  const recs = D.RECIPES.filter(r=> craftTab==='todas' ? (r.estacao===station||r.estacao==='mão') : r.estacao===craftTab);
+  const recs = D.RECIPES.filter(r=> craftTab==='todas' ? g.hasStation(r.estacao) : r.estacao===craftTab);
   if(!recs.length) list.innerHTML='<p class="small">Nenhuma receita aqui. Aproxime-se de uma estação ou troque a aba.</p>';
   for(const r of recs){
     const ok=g.canCraft(r);
     const d=document.createElement('div'); d.className='recipe';
-    d.innerHTML=`<span>${(D.ITEMS[r.out]||{}).icone||'🔨'} <b>${r.out}</b> <span class="small">${r.desc}</span><br><span class="cost">${Object.entries(r.custo).map(([k,v])=>`${k} ${g.countItem(k)}/${v}`).join(' · ')}</span></span>`;
+    d.innerHTML=`<span>${itemIcon(r.out)} <b>${r.out}</b> <span class="small">${r.desc}</span><br><span class="cost">${Object.entries(r.custo).map(([k,v])=>`${k} ${g.countItem(k)}/${v}`).join(' · ')}</span></span>`;
     const b=document.createElement('button'); b.textContent='Craft'; b.disabled=!ok;
     b.onclick=()=>{ g.craft(r); openCraft(g); renderInventory(g); };
     d.appendChild(b); list.appendChild(d);
@@ -130,25 +143,18 @@ export function openBuild(g){
 export function openMap(g){
   closeAll(); $('map-overlay').classList.remove('hidden');
   const cv=$('map-canvas'), ctx=cv.getContext('2d');
-  ctx.fillStyle='#0e1622'; ctx.fillRect(0,0,cv.width,cv.height);
-  const sx = cv.width/WORLD_W;
-  // biomas
-  for(let x=0;x<WORLD_W;x+=40){ const b=g.world.biome(x); ctx.fillStyle=b.cor; ctx.fillRect(x*sx, 20, 40*sx+1, cv.height-60); }
-  // mar
-  ctx.fillStyle='rgba(60,140,220,0.5)'; ctx.fillRect(0,20,cv.width,cv.height-60);
-  // cavernas
-  ctx.fillStyle='#14141c'; for(const c of g.world.caves) ctx.fillRect((c.x-c.w/2)*sx, 30, c.w*sx, 8);
-  // POIs
-  ctx.font='10px monospace';
-  for(const poi of g.world.pois){ ctx.fillStyle='#ffd97a'; ctx.fillRect(poi.x*sx-2, 24, 4, 4); }
-  // jogador
-  ctx.fillStyle='#fff'; ctx.fillRect(g.player.x*sx-3, 18, 6, 6);
-  ctx.fillStyle='#ffd97a'; ctx.fillText('▲ você', g.player.x*sx-12, 14);
-  // construções
-  ctx.fillStyle='#e84a6a'; for(const b of g.buildings) ctx.fillRect(b.x*sx-2, cv.height-46, 4, 4);
-  // domados
-  ctx.fillStyle='#4ae88a'; for(const e of g.entities) if(e.tamed) ctx.fillRect(e.x*sx-2, cv.height-46, 4, 4);
-  $('map-legend').textContent = `Legenda: ▲ jogador · pontos dourados = pontos de interesse (${D.POIS.join(', ')}) · faixas escuras = cavernas naturais · rosa = construções · verde = domados. Seed: ${g.world.seedStr}`;
+  const sx=cv.width/WORLD_W, sy=cv.height/MAP_H;
+  // A mesma função de terreno usada no mundo jogável.
+  for(let y=0;y<MAP_H;y+=TILE) for(let x=0;x<WORLD_W;x+=TILE){
+    ctx.fillStyle=g.map.color(x,y,g.world); ctx.fillRect(x*sx,y*sy,Math.ceil(TILE*sx),Math.ceil(TILE*sy));
+  }
+  const mark=(o,color,size)=>{ctx.fillStyle=color;ctx.fillRect(o.x*sx-size/2,(o.mapY ?? MAP_H/2)*sy-size/2,size,size);};
+  for(const poi of g.world.pois) mark(poi,'#ffe083',4);
+  for(const b of g.buildings) mark(b,'#db5260',5);
+  for(const e of g.entities) if(e.tamed) mark(e,'#f5f5a1',4);
+  mark(g.player,'#ffffff',7);
+  ctx.strokeStyle='#4c3927';ctx.strokeRect(0,0,cv.width,cv.height);
+  $('map-legend').textContent = `Branco: você · dourado: locais de interesse · vermelho: construções · amarelo: animais domados. Seed: ${g.world.seedStr}`;
 }
 
 export function openTamed(g){

@@ -3,10 +3,10 @@
 // Tela de título, personalização do sobrevivente (cabelo,
 // barba, roupas), seed reproduzível e arranque do loop.
 // ============================================================
-import { Game } from './game.js';
-import * as UI from './ui.js';
-import * as D from './data.js';
-import { drawPlayer } from './sprites.js';
+import { Game } from './game.js?v=20261126l';
+import * as UI from './ui.js?v=20261126l';
+import * as D from './data.js?v=20261126l';
+import { drawPlayer, onModelLoad } from './sprites.js?v=20261126l';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -17,8 +17,8 @@ const char = { skin: D.SKIN_TONES[1], hair: D.HAIR_COLORS[0], hairStyle: 'curto'
 function renderPreview(){
   const cv = $('char-preview'), ctx = cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
-  ctx.save(); ctx.scale(1.4,1.4);
-  drawPlayer(ctx,{x:24,y:44,dir:1,pose:'parado',walkPhase:0,skin:char.skin,hair:char.hair,hairStyle:char.hairStyle,beard:char.beard,shirt:char.shirt,pants:'#4a3a2e',tool:'machado simples'});
+  ctx.save(); ctx.scale(1,1);
+  drawPlayer(ctx,{x:24,y:61,dir:1,pose:'parado',walkPhase:0,skin:char.skin,hair:char.hair,hairStyle:char.hairStyle,beard:char.beard,shirt:char.shirt,pants:'#4a3a2e',tool:'machado simples'});
   ctx.restore();
 }
 function buildOpts(){
@@ -45,11 +45,12 @@ function buildOpts(){
     row.appendChild(opts); box.appendChild(row);
   }
 }
+onModelLoad(renderPreview);
 buildOpts(); renderPreview();
 $('btn-continue').disabled = !game.hasSave();
 
 function startGame(fresh){
-  const seed = ($('seed-input').value||'ARKYT-2026').trim();
+  const seed = $('seed-input').value.trim() || `mundo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
   game.audio.init();
   if(fresh) game.newGame(seed, {...char});
   else if(!game.load()){ game.newGame(seed, {...char}); }
